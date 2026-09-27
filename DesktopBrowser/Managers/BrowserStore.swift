@@ -16,6 +16,9 @@ final class BrowserStore: ObservableObject {
 
     func addTab(downloadManager: DownloadManager, startURL: URL? = URL(string: "https://www.google.com")) {
         let tab = BrowserTab(downloadManager: downloadManager, startURL: startURL)
+        tab.onOpenNewTab = { [weak self] url in
+            self?.addTab(downloadManager: downloadManager, startURL: url)
+        }
         tabs.append(tab)
         selectedID = tab.id
     }

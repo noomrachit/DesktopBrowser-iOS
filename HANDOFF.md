@@ -18,7 +18,8 @@
 - ยังไม่เคยยืนยันว่า build ผ่าน เพราะสภาพแวดล้อมที่ตรวจเป็น Linux ไม่มี Xcode
 - Git: ในไฟล์ zip ต้นฉบับไม่มี repository เริ่มสร้าง repository ใหม่พร้อม commit แรกแล้ว
 - 2026-09-27: push โปรเจกต์ทั้งหมดขึ้น branch `claude/new-session-7o1zks` แล้ว GitHub Actions (`iOS Build Check`, macos-26, xcodebuild) **ผ่าน** — ยืนยันแล้วว่าโปรเจกต์คอมไพล์ได้จริงบน macOS/Xcode
-- 2026-09-27: เพิ่มเปอร์เซ็นต์ดาวน์โหลดและ pause/resume แล้ว (ดูหัวข้อ "งานค้าง" ข้อ 6) — ยังไม่ได้ยืนยันด้วย build จริงบน macOS หลังจากแก้
+- 2026-09-27: เพิ่มเปอร์เซ็นต์ดาวน์โหลดและ pause/resume แล้ว push ขึ้น GitHub และ CI **ผ่าน** (run 36331438890)
+- 2026-09-27: เพิ่มเปิดหน้าต่างใหม่เป็นแท็บใหม่แล้ว (ดูหัวข้อ "งานค้าง" ข้อ 6) — ยังไม่ได้ยืนยันด้วย build จริงบน macOS หลังจากแก้
 
 ## โครงสร้าง
 
@@ -26,9 +27,9 @@
 |---|---|
 | `DesktopBrowserApp.swift` | จุดเริ่มแอป สร้าง `BrowserStore` และ `DownloadManager` |
 | `ContentView.swift` | แถบแท็บ แถบนำทาง ช่อง URL แถบโหลด และหน้าเว็บ |
-| `Models/BrowserTab.swift` | หนึ่งแท็บ = หนึ่ง `WKWebView` ตั้งค่าโหมด Desktop, ตัวกรอง scheme, ส่งต่อการดาวน์โหลด |
+| `Models/BrowserTab.swift` | หนึ่งแท็บ = หนึ่ง `WKWebView` ตั้งค่าโหมด Desktop, ตัวกรอง scheme, ส่งต่อการดาวน์โหลด, เรียก `onOpenNewTab` เมื่อเว็บเปิดหน้าต่างใหม่ |
 | `Models/DownloadRecord.swift` | ข้อมูลรายการดาวน์โหลด รวมจำนวนไบต์ที่โหลดแล้ว/ทั้งหมด และเปอร์เซ็นต์ที่คำนวณจากไบต์ |
-| `Managers/BrowserStore.swift` | เพิ่ม เลือก ปิดแท็บ |
+| `Managers/BrowserStore.swift` | เพิ่ม เลือก ปิดแท็บ, ผูก `BrowserTab.onOpenNewTab` ให้เปิดแท็บใหม่ |
 | `Managers/DownloadManager.swift` | จัดการ `WKDownload` บันทึกลง Documents/Downloads, ติดตามความคืบหน้าด้วย KVO บน `download.progress`, หยุดชั่วคราว/ต่อด้วย `cancel(resultHandler:)` + `resumeDownload(fromResumeData:)` |
 | `Views/*` | ตัวห่อ WebView, แถบแท็บ, รายการดาวน์โหลด |
 
@@ -57,9 +58,9 @@
 4. [x] เพิ่ม shared scheme
 5. [x] push ขึ้น GitHub แล้วดูผล GitHub Actions — ผ่าน (run 36331086129)
 6. งานถัดไปจาก README:
-   - [x] เปอร์เซ็นต์ดาวน์โหลด — เพิ่มแล้ว (ดูบันทึกการทำงาน)
-   - [x] pause/resume ดาวน์โหลด — เพิ่มแล้ว (ดูบันทึกการทำงาน) รอยืนยันด้วย build/รันจริง
-   - [ ] เปิดหน้าต่างใหม่เป็นแท็บใหม่ (ตอนนี้ `BrowserTab.webView(_:createWebViewWith:...)` โหลด URL ในแท็บเดิม)
+   - [x] เปอร์เซ็นต์ดาวน์โหลด — เพิ่มแล้ว, CI ผ่าน
+   - [x] pause/resume ดาวน์โหลด — เพิ่มแล้ว, CI ผ่าน แต่ยังไม่ทดสอบพฤติกรรมจริงบนอุปกรณ์/simulator (ดู "ความเสี่ยงที่ยังไม่ได้ยืนยัน")
+   - [x] เปิดหน้าต่างใหม่เป็นแท็บใหม่ — เพิ่มแล้ว (ดูบันทึกการทำงาน) รอยืนยันด้วย CI/build
    - [ ] ไอคอนแอป
 
 ## บันทึกการทำงาน
@@ -72,3 +73,7 @@
   - `DownloadManager`: สังเกตการณ์ `download.progress` ด้วย KVO (`completedUnitCount`), เพิ่ม `pause(_:)` ที่เรียก `download.cancel(resultHandler:)` เก็บ `resumeData`, เพิ่ม `resume(_:)` ที่เรียก `webView.resumeDownload(fromResumeData:)` บน `WKWebView` ต้นทางที่เก็บไว้จาก `download.webView`
   - `DownloadListView`: แสดงแถบความคืบหน้า + เปอร์เซ็นต์/ขนาดไฟล์ และปุ่มหยุดชั่วคราว/ต่อ ตามสถานะ
   - ยังไม่ได้ build บน Xcode จริง (สภาพแวดล้อมนี้ไม่มี Xcode) — ต้องตรวจผล CI หลัง push
+- 2026-09-27: เพิ่มเปิดหน้าต่างใหม่เป็นแท็บใหม่:
+  - `BrowserTab`: เพิ่ม `var onOpenNewTab: ((URL) -> Void)?`, เรียกใน `webView(_:createWebViewWith:for:windowFeatures:)` แทนการ `webView.load(...)` ในแท็บเดิม (ยังคงเช็ค `navigationAction.targetFrame == nil` เหมือนเดิม และ fallback เป็นโหลดในแท็บเดิมถ้าไม่มี callback)
+  - `BrowserStore.addTab(...)`: ผูก `tab.onOpenNewTab` ให้เรียก `addTab` ตัวเองอีกครั้งด้วย URL ใหม่ (ใช้ `[weak self]` กัน retain cycle) ทำให้แท็บใหม่ถูกเพิ่มเข้า `tabs` และถูกเลือกเป็นแท็บปัจจุบันทันที
+  - ยังไม่ได้ build บน Xcode จริง — ต้องตรวจผล CI หลัง push

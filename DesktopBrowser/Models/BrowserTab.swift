@@ -14,6 +14,7 @@ final class BrowserTab: NSObject, ObservableObject, Identifiable {
     @Published var canGoForward = false
 
     weak var downloadManager: DownloadManager?
+    var onOpenNewTab: ((URL) -> Void)?
     private var observations: [NSKeyValueObservation] = []
 
     init(downloadManager: DownloadManager, startURL: URL? = URL(string: "https://www.google.com")) {
@@ -135,7 +136,10 @@ extension BrowserTab: WKUIDelegate {
         for navigationAction: WKNavigationAction,
         windowFeatures: WKWindowFeatures
     ) -> WKWebView? {
-        if navigationAction.targetFrame == nil, let url = navigationAction.request.url {
+        guard navigationAction.targetFrame == nil, let url = navigationAction.request.url else { return nil }
+        if let onOpenNewTab {
+            onOpenNewTab(url)
+        } else {
             webView.load(URLRequest(url: url))
         }
         return nil
