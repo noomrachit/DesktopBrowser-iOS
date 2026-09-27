@@ -1,6 +1,6 @@
 # HANDOFF — Desktop Browser for iPhone
 
-อัปเดตล่าสุด: 2026-09-24
+อัปเดตล่าสุด: 2026-09-27
 
 ## วิธีเริ่มงานสำหรับผู้ช่วยคนถัดไป
 
@@ -17,6 +17,8 @@
 - มี GitHub Actions (`.github/workflows/ios-build.yml`) สำหรับ build บน simulator โดยไม่ต้อง sign
 - ยังไม่เคยยืนยันว่า build ผ่าน เพราะสภาพแวดล้อมที่ตรวจเป็น Linux ไม่มี Xcode
 - Git: ในไฟล์ zip ต้นฉบับไม่มี repository เริ่มสร้าง repository ใหม่พร้อม commit แรกแล้ว
+- 2026-09-27: push โปรเจกต์ทั้งหมดขึ้น branch `claude/new-session-7o1zks` แล้ว GitHub Actions (`iOS Build Check`, macos-26, xcodebuild) **ผ่าน** — ยืนยันแล้วว่าโปรเจกต์คอมไพล์ได้จริงบน macOS/Xcode
+- 2026-09-27: เพิ่มเปอร์เซ็นต์ดาวน์โหลดและ pause/resume แล้ว (ดูหัวข้อ "งานค้าง" ข้อ 6) — ยังไม่ได้ยืนยันด้วย build จริงบน macOS หลังจากแก้
 
 ## โครงสร้าง
 
@@ -25,9 +27,9 @@
 | `DesktopBrowserApp.swift` | จุดเริ่มแอป สร้าง `BrowserStore` และ `DownloadManager` |
 | `ContentView.swift` | แถบแท็บ แถบนำทาง ช่อง URL แถบโหลด และหน้าเว็บ |
 | `Models/BrowserTab.swift` | หนึ่งแท็บ = หนึ่ง `WKWebView` ตั้งค่าโหมด Desktop, ตัวกรอง scheme, ส่งต่อการดาวน์โหลด |
-| `Models/DownloadRecord.swift` | ข้อมูลรายการดาวน์โหลด |
+| `Models/DownloadRecord.swift` | ข้อมูลรายการดาวน์โหลด รวมจำนวนไบต์ที่โหลดแล้ว/ทั้งหมด และเปอร์เซ็นต์ที่คำนวณจากไบต์ |
 | `Managers/BrowserStore.swift` | เพิ่ม เลือก ปิดแท็บ |
-| `Managers/DownloadManager.swift` | จัดการ `WKDownload` บันทึกลง Documents/Downloads |
+| `Managers/DownloadManager.swift` | จัดการ `WKDownload` บันทึกลง Documents/Downloads, ติดตามความคืบหน้าด้วย KVO บน `download.progress`, หยุดชั่วคราว/ต่อด้วย `cancel(resultHandler:)` + `resumeDownload(fromResumeData:)` |
 | `Views/*` | ตัวห่อ WebView, แถบแท็บ, รายการดาวน์โหลด |
 
 ## จุดที่ไม่ตรงกันระหว่าง README กับโค้ด (แก้แล้ว 2026-09-24 รอยืนยันด้วยการ build)
@@ -42,6 +44,10 @@
 - `project.pbxproj` เขียนด้วยมือ อาจเปิดใน Xcode ไม่ได้ ทางสำรองคือสร้างใหม่ด้วย `xcodegen generate`
 - CI ใช้ `runs-on: macos-26` ต้องตรวจว่า runner นี้มีให้ใช้จริง
 - รายการดาวน์โหลดไม่ถูกบันทึกถาวร หายเมื่อปิดแอป
+- Pause/resume ยังไม่ได้ทดสอบบน Xcode จริง (สภาพแวดล้อมนี้เป็น Linux ไม่มี Xcode) ควรตรวจ:
+  - `WKDownload.progress` ยิง KVO ตามจริงกับเว็บไซต์ทดสอบหลายแบบ (ไฟล์ใหญ่/เล็ก, ไม่รู้ขนาดล่วงหน้า)
+  - เซิร์ฟเวอร์ปลายทางต้องรองรับ HTTP range request ไม่งั้น `resumeData` จาก `download.cancel` อาจเป็น nil (โค้ดจัดการกรณีนี้แล้วโดยตั้งสถานะเป็น "ไม่สำเร็จ")
+  - ถ้าปิดแท็บต้นทางระหว่างที่ดาวน์โหลดหยุดชั่วคราว `DownloadManager` จะยังถือ reference ของ `WKWebView` เดิมไว้จนกว่าจะ resume หรือ "ล้าง" รายการ (กันไม่ให้ resume ไม่ได้ แต่ทำให้ webview นั้น deallocate ช้าลง)
 
 ## งานค้าง (เรียงตามลำดับ)
 
@@ -49,10 +55,20 @@
 2. [x] แก้ข้อ 1
 3. [x] แก้ข้อ 2
 4. [x] เพิ่ม shared scheme
-5. [ ] push ขึ้น GitHub แล้วดูผล GitHub Actions
-6. [ ] งานถัดไปจาก README: เปอร์เซ็นต์/pause/resume ดาวน์โหลด, เปิดหน้าต่างใหม่เป็นแท็บใหม่, ไอคอนแอป
+5. [x] push ขึ้น GitHub แล้วดูผล GitHub Actions — ผ่าน (run 36331086129)
+6. งานถัดไปจาก README:
+   - [x] เปอร์เซ็นต์ดาวน์โหลด — เพิ่มแล้ว (ดูบันทึกการทำงาน)
+   - [x] pause/resume ดาวน์โหลด — เพิ่มแล้ว (ดูบันทึกการทำงาน) รอยืนยันด้วย build/รันจริง
+   - [ ] เปิดหน้าต่างใหม่เป็นแท็บใหม่ (ตอนนี้ `BrowserTab.webView(_:createWebViewWith:...)` โหลด URL ในแท็บเดิม)
+   - [ ] ไอคอนแอป
 
 ## บันทึกการทำงาน
 
 - 2026-09-24: ตรวจโค้ดทั้งหมด สร้าง HANDOFF.md และ Git repository ยังไม่แก้โค้ด
 - 2026-09-24: แก้การอัปเดต UI ของแท็บ เปิดการแชร์ไฟล์กับแอป Files และเพิ่ม shared scheme (ยังไม่ได้ build)
+- 2026-09-27: import โปรเจกต์จาก zip เข้า repo บน branch `claude/new-session-7o1zks`, push ขึ้น GitHub, ยืนยัน CI ผ่าน (macos-26, xcodebuild)
+- 2026-09-27: เพิ่มเปอร์เซ็นต์ดาวน์โหลดและ pause/resume:
+  - `DownloadRecord`: เพิ่ม `.paused` state, `totalBytesWritten`/`totalBytesExpectedToWrite`, computed `fractionCompleted`/`formattedProgress`
+  - `DownloadManager`: สังเกตการณ์ `download.progress` ด้วย KVO (`completedUnitCount`), เพิ่ม `pause(_:)` ที่เรียก `download.cancel(resultHandler:)` เก็บ `resumeData`, เพิ่ม `resume(_:)` ที่เรียก `webView.resumeDownload(fromResumeData:)` บน `WKWebView` ต้นทางที่เก็บไว้จาก `download.webView`
+  - `DownloadListView`: แสดงแถบความคืบหน้า + เปอร์เซ็นต์/ขนาดไฟล์ และปุ่มหยุดชั่วคราว/ต่อ ตามสถานะ
+  - ยังไม่ได้ build บน Xcode จริง (สภาพแวดล้อมนี้ไม่มี Xcode) — ต้องตรวจผล CI หลัง push

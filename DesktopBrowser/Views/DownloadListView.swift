@@ -19,10 +19,37 @@ struct DownloadListView: View {
                                     .font(.caption)
                                     .foregroundStyle(color(record))
                                 Spacer()
-                                if record.state == .completed, let url = record.destination {
-                                    ShareLink(item: url) {
-                                        Image(systemName: "square.and.arrow.up")
+                                switch record.state {
+                                case .downloading:
+                                    Button { manager.pause(record.id) } label: {
+                                        Image(systemName: "pause.circle")
                                     }
+                                case .paused:
+                                    Button { manager.resume(record.id) } label: {
+                                        Image(systemName: "play.circle")
+                                    }
+                                case .completed:
+                                    if let url = record.destination {
+                                        ShareLink(item: url) {
+                                            Image(systemName: "square.and.arrow.up")
+                                        }
+                                    }
+                                case .failed:
+                                    EmptyView()
+                                }
+                            }
+                            if record.state == .downloading || record.state == .paused {
+                                if let fractionCompleted = record.fractionCompleted {
+                                    ProgressView(value: fractionCompleted)
+                                        .progressViewStyle(.linear)
+                                        .tint(color(record))
+                                } else {
+                                    ProgressView()
+                                        .progressViewStyle(.linear)
+                                        .tint(color(record))
+                                }
+                                if let formattedProgress = record.formattedProgress {
+                                    Text(formattedProgress).font(.caption2).foregroundStyle(.secondary)
                                 }
                             }
                             if let message = record.errorMessage {
@@ -48,6 +75,7 @@ struct DownloadListView: View {
     private func status(_ record: DownloadRecord) -> String {
         switch record.state {
         case .downloading: "กำลังดาวน์โหลด"
+        case .paused: "หยุดชั่วคราว"
         case .completed: "เสร็จแล้ว"
         case .failed: "ไม่สำเร็จ"
         }
@@ -56,6 +84,7 @@ struct DownloadListView: View {
     private func icon(_ record: DownloadRecord) -> String {
         switch record.state {
         case .downloading: "arrow.down.circle"
+        case .paused: "pause.circle.fill"
         case .completed: "checkmark.circle.fill"
         case .failed: "exclamationmark.triangle.fill"
         }
@@ -64,6 +93,7 @@ struct DownloadListView: View {
     private func color(_ record: DownloadRecord) -> Color {
         switch record.state {
         case .downloading: .blue
+        case .paused: .orange
         case .completed: .green
         case .failed: .red
         }

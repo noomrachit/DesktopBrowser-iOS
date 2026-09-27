@@ -5,10 +5,13 @@ import WebKit
 final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
     @Published private(set) var records: [DownloadRecord] = []
     private var recordIDs: [ObjectIdentifier: UUID] = [:]
+    private var activeDownloads: [UUID: WKDownload] = [:]
+    private var originWebViews: [UUID: WKWebView] = [:]
+    private var progressObservations: [UUID: NSKeyValueObservation] = [:]
+    private var pausedResumeData: [UUID: Data] = [:]
 
     func attach(_ download: WKDownload) {
         let id = UUID()
-        recordIDs[ObjectIdentifier(download)] = id
         records.insert(
             DownloadRecord(
                 id: id,
@@ -20,7 +23,44 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
             ),
             at: 0
         )
-        download.delegate = self
+        register(download, id: id)
+    }
+
+    func pause(_ id: UUID) {
+        guard let download = activeDownloads[id] else { return }
+        let key = ObjectIdentifier(download)
+        download.cancel { [weak self] resumeData in
+            Task { @MainActor in
+                guard let self else { return }
+                self.recordIDs.removeValue(forKey: key)
+                self.activeDownloads.removeValue(forKey: id)
+                self.progressObservations.removeValue(forKey: id)
+                guard let index = self.records.firstIndex(where: { $0.id == id }) else { return }
+                if let resumeData {
+                    self.pausedResumeData[id] = resumeData
+                    self.records[index].state = .paused
+                } else {
+                    self.records[index].state = .failed
+                    self.records[index].errorMessage = "ไม่สามารถหยุดชั่วคราวได้"
+                    self.originWebViews.removeValue(forKey: id)
+                }
+            }
+        }
+    }
+
+    func resume(_ id: UUID) {
+        guard let resumeData = pausedResumeData[id],
+              let webView = originWebViews[id] else { return }
+        webView.resumeDownload(fromResumeData: resumeData) { [weak self] download in
+            Task { @MainActor in
+                guard let self else { return }
+                self.pausedResumeData.removeValue(forKey: id)
+                self.register(download, id: id)
+                guard let index = self.records.firstIndex(where: { $0.id == id }) else { return }
+                self.records[index].state = .downloading
+                self.records[index].errorMessage = nil
+            }
+        }
     }
 
     nonisolated func download(
@@ -36,14 +76,8 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
                 completionHandler(nil)
                 return
             }
-            self.records[index] = DownloadRecord(
-                id: id,
-                fileName: destination.lastPathComponent,
-                destination: destination,
-                state: .downloading,
-                errorMessage: nil,
-                startedAt: self.records[index].startedAt
-            )
+            self.records[index].fileName = destination.lastPathComponent
+            self.records[index].destination = destination
             completionHandler(destination)
         }
     }
@@ -61,7 +95,32 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
     }
 
     func clearFinished() {
+        let removableIDs = records.filter { $0.state != .downloading }.map(\.id)
         records.removeAll { $0.state != .downloading }
+        for id in removableIDs {
+            activeDownloads.removeValue(forKey: id)
+            originWebViews.removeValue(forKey: id)
+            progressObservations.removeValue(forKey: id)
+            pausedResumeData.removeValue(forKey: id)
+        }
+    }
+
+    private func register(_ download: WKDownload, id: UUID) {
+        download.delegate = self
+        recordIDs[ObjectIdentifier(download)] = id
+        activeDownloads[id] = download
+        if let webView = download.webView {
+            originWebViews[id] = webView
+        }
+        progressObservations[id] = download.progress.observe(\.completedUnitCount, options: [.new]) { [weak self] progress, _ in
+            Task { @MainActor in self?.updateBytes(id: id, progress: progress) }
+        }
+    }
+
+    private func updateBytes(id: UUID, progress: Progress) {
+        guard let index = records.firstIndex(where: { $0.id == id }) else { return }
+        records[index].totalBytesWritten = progress.completedUnitCount
+        records[index].totalBytesExpectedToWrite = progress.totalUnitCount
     }
 
     private func finish(_ download: WKDownload, error: Error?) {
@@ -71,6 +130,10 @@ final class DownloadManager: NSObject, ObservableObject, WKDownloadDelegate {
         records[index].state = error == nil ? .completed : .failed
         records[index].errorMessage = error?.localizedDescription
         recordIDs.removeValue(forKey: key)
+        activeDownloads.removeValue(forKey: id)
+        originWebViews.removeValue(forKey: id)
+        progressObservations.removeValue(forKey: id)
+        pausedResumeData.removeValue(forKey: id)
     }
 
     private nonisolated static func uniqueDestination(for suggestedFilename: String) -> URL {
