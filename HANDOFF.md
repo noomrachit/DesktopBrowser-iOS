@@ -19,7 +19,8 @@
 - Git: ในไฟล์ zip ต้นฉบับไม่มี repository เริ่มสร้าง repository ใหม่พร้อม commit แรกแล้ว
 - 2026-09-27: push โปรเจกต์ทั้งหมดขึ้น branch `claude/new-session-7o1zks` แล้ว GitHub Actions (`iOS Build Check`, macos-26, xcodebuild) **ผ่าน** — ยืนยันแล้วว่าโปรเจกต์คอมไพล์ได้จริงบน macOS/Xcode
 - 2026-09-27: เพิ่มเปอร์เซ็นต์ดาวน์โหลดและ pause/resume แล้ว push ขึ้น GitHub และ CI **ผ่าน** (run 36331438890)
-- 2026-09-27: เพิ่มเปิดหน้าต่างใหม่เป็นแท็บใหม่แล้ว (ดูหัวข้อ "งานค้าง" ข้อ 6) — ยังไม่ได้ยืนยันด้วย build จริงบน macOS หลังจากแก้
+- 2026-09-27: เพิ่มเปิดหน้าต่างใหม่เป็นแท็บใหม่แล้ว push ขึ้น GitHub และ CI **ผ่าน** (run 36331591484)
+- 2026-09-27: เพิ่มไอคอนแอปแล้ว (ดูหัวข้อ "งานค้าง" ข้อ 6) — ยังไม่ได้ยืนยันด้วย build จริงบน macOS หลังจากแก้ ทำให้ครบทุกข้อใน README/HANDOFF แล้ว
 
 ## โครงสร้าง
 
@@ -32,6 +33,7 @@
 | `Managers/BrowserStore.swift` | เพิ่ม เลือก ปิดแท็บ, ผูก `BrowserTab.onOpenNewTab` ให้เปิดแท็บใหม่ |
 | `Managers/DownloadManager.swift` | จัดการ `WKDownload` บันทึกลง Documents/Downloads, ติดตามความคืบหน้าด้วย KVO บน `download.progress`, หยุดชั่วคราว/ต่อด้วย `cancel(resultHandler:)` + `resumeDownload(fromResumeData:)` |
 | `Views/*` | ตัวห่อ WebView, แถบแท็บ, รายการดาวน์โหลด |
+| `Assets.xcassets/AppIcon.appiconset` | ไอคอนแอป (รูปเดียว 1024×1024 แบบ single-size ของ Xcode 14+ ให้ระบบ scale เอง) |
 
 ## จุดที่ไม่ตรงกันระหว่าง README กับโค้ด (แก้แล้ว 2026-09-24 รอยืนยันด้วยการ build)
 
@@ -60,8 +62,10 @@
 6. งานถัดไปจาก README:
    - [x] เปอร์เซ็นต์ดาวน์โหลด — เพิ่มแล้ว, CI ผ่าน
    - [x] pause/resume ดาวน์โหลด — เพิ่มแล้ว, CI ผ่าน แต่ยังไม่ทดสอบพฤติกรรมจริงบนอุปกรณ์/simulator (ดู "ความเสี่ยงที่ยังไม่ได้ยืนยัน")
-   - [x] เปิดหน้าต่างใหม่เป็นแท็บใหม่ — เพิ่มแล้ว (ดูบันทึกการทำงาน) รอยืนยันด้วย CI/build
-   - [ ] ไอคอนแอป
+   - [x] เปิดหน้าต่างใหม่เป็นแท็บใหม่ — เพิ่มแล้ว, CI ผ่าน
+   - [x] ไอคอนแอป — เพิ่มแล้ว (ดูบันทึกการทำงาน) รอยืนยันด้วย CI/build
+
+ทุกข้อใน "งานถัดไปจาก README" ทำครบแล้ว งานที่เหลือคือสิ่งที่ระบุใน "ข้อจำกัด" ของ README (เช่น App Store icon assets เพิ่มเติม, นโยบายความเป็นส่วนตัว, ทดสอบความปลอดภัย) ซึ่งเป็นงานเตรียมส่ง App Store ไม่ใช่ฟีเจอร์
 
 ## บันทึกการทำงาน
 
@@ -76,4 +80,10 @@
 - 2026-09-27: เพิ่มเปิดหน้าต่างใหม่เป็นแท็บใหม่:
   - `BrowserTab`: เพิ่ม `var onOpenNewTab: ((URL) -> Void)?`, เรียกใน `webView(_:createWebViewWith:for:windowFeatures:)` แทนการ `webView.load(...)` ในแท็บเดิม (ยังคงเช็ค `navigationAction.targetFrame == nil` เหมือนเดิม และ fallback เป็นโหลดในแท็บเดิมถ้าไม่มี callback)
   - `BrowserStore.addTab(...)`: ผูก `tab.onOpenNewTab` ให้เรียก `addTab` ตัวเองอีกครั้งด้วย URL ใหม่ (ใช้ `[weak self]` กัน retain cycle) ทำให้แท็บใหม่ถูกเพิ่มเข้า `tabs` และถูกเลือกเป็นแท็บปัจจุบันทันที
+  - push ขึ้น GitHub และ CI **ผ่าน** (run 36331591484)
+- 2026-09-27: เพิ่มไอคอนแอป:
+  - สร้าง `DesktopBrowser/Assets.xcassets/AppIcon.appiconset/` ด้วยรูป PNG เดียวขนาด 1024×1024 (ไม่มี alpha channel ตามข้อกำหนดของ App Store) ใช้รูปแบบ single-size app icon ของ Xcode 14+ (`idiom: universal`) ให้ Xcode สร้างขนาดย่อยเองตอน build
+  - รูปเป็นไอคอนจอคอมพิวเตอร์ (desktop monitor) พร้อมลูกโลกตรงกลางจอ สื่อถึง "เบราว์เซอร์โหมด Desktop" วาดด้วยสคริปต์ Python + Pillow ไม่ได้ใช้ asset ภายนอก
+  - เพิ่ม `ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon` ใน `project.pbxproj` (ทั้ง Debug/Release) และ `project.yml`
+  - เพิ่ม `Assets.xcassets` เป็น PBXFileReference/PBXBuildFile ใน `project.pbxproj` (แก้ด้วยมือ ตามรูปแบบเดิมของไฟล์ ยังไม่ได้เปิดใน Xcode จริง)
   - ยังไม่ได้ build บน Xcode จริง — ต้องตรวจผล CI หลัง push
