@@ -1,0 +1,21 @@
+name: iOS Build Check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build without signing
+        run: |
+          xcodebuild \
+            -project DesktopBrowser.xcodeproj \
+            -scheme DesktopBrowser \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build

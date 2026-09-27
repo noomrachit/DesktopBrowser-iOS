@@ -1,0 +1,58 @@
+# HANDOFF — Desktop Browser for iPhone
+
+อัปเดตล่าสุด: 2026-09-24
+
+## วิธีเริ่มงานสำหรับผู้ช่วยคนถัดไป
+
+1. อ่าน `README.md` และไฟล์นี้ก่อน
+2. ตรวจ `git status` และ `git log --oneline`
+3. ทบทวนหัวข้อ "สถานะ" และ "งานค้าง" แล้วทำข้อถัดไป
+4. ถ้าข้อมูลใน README, HANDOFF และโค้ดไม่ตรงกัน ให้แจ้งผู้ใช้ก่อนแก้
+5. ให้เครื่องมือเดียวเป็นผู้แก้ไขหลักในแต่ละช่วง แล้วอัปเดตไฟล์นี้ทุกครั้งที่จบงาน
+
+## สถานะ
+
+- โปรเจกต์ SwiftUI + WKWebView, iOS 17+, ไฟล์ Swift 9 ไฟล์ (ประมาณ 530 บรรทัด)
+- มี `project.pbxproj` ที่เขียนด้วยมือ และ `project.yml` สำหรับ XcodeGen
+- มี GitHub Actions (`.github/workflows/ios-build.yml`) สำหรับ build บน simulator โดยไม่ต้อง sign
+- ยังไม่เคยยืนยันว่า build ผ่าน เพราะสภาพแวดล้อมที่ตรวจเป็น Linux ไม่มี Xcode
+- Git: ในไฟล์ zip ต้นฉบับไม่มี repository เริ่มสร้าง repository ใหม่พร้อม commit แรกแล้ว
+
+## โครงสร้าง
+
+| ไฟล์ | หน้าที่ |
+|---|---|
+| `DesktopBrowserApp.swift` | จุดเริ่มแอป สร้าง `BrowserStore` และ `DownloadManager` |
+| `ContentView.swift` | แถบแท็บ แถบนำทาง ช่อง URL แถบโหลด และหน้าเว็บ |
+| `Models/BrowserTab.swift` | หนึ่งแท็บ = หนึ่ง `WKWebView` ตั้งค่าโหมด Desktop, ตัวกรอง scheme, ส่งต่อการดาวน์โหลด |
+| `Models/DownloadRecord.swift` | ข้อมูลรายการดาวน์โหลด |
+| `Managers/BrowserStore.swift` | เพิ่ม เลือก ปิดแท็บ |
+| `Managers/DownloadManager.swift` | จัดการ `WKDownload` บันทึกลง Documents/Downloads |
+| `Views/*` | ตัวห่อ WebView, แถบแท็บ, รายการดาวน์โหลด |
+
+## จุดที่ไม่ตรงกันระหว่าง README กับโค้ด (แก้แล้ว 2026-09-24 รอยืนยันด้วยการ build)
+
+1. **UI ของแท็บอาจไม่อัปเดต** (แก้แล้ว: เพิ่ม `NavigationBarView` และ `TabChip` ที่ใช้ `@ObservedObject var tab`) — `ContentView` ติดตามแค่ `BrowserStore` แต่ค่า `isLoading`, `progress`, `canGoBack`, `canGoForward`, `title` อยู่ใน `BrowserTab` ซึ่งเป็น `ObservableObject` แยก การเปลี่ยนค่าของแท็บจึงไม่ทำให้ `ContentView` และ `TabStripView` วาดใหม่ ผลคือแถบความคืบหน้า ปุ่มย้อนกลับ/ไปข้างหน้า ปุ่มรีโหลด/หยุด ชื่อแท็บ และช่อง URL อาจค้าง ขัดกับฟีเจอร์ที่ README ระบุ
+2. **ไฟล์ดาวน์โหลดไม่ปรากฏในแอป Files** (แก้แล้ว: เพิ่มคีย์ทั้งใน `project.pbxproj` และ `project.yml`) — ยังไม่มีคีย์ `UIFileSharingEnabled` และ `LSSupportsOpeningDocumentsInPlace` ผู้ใช้เปิดไฟล์ได้เฉพาะผ่าน Share Sheet ในแอป
+
+## ความเสี่ยงที่ยังไม่ได้ยืนยัน
+
+- เพิ่ม shared scheme `DesktopBrowser.xcscheme` แล้ว ยังไม่ได้ทดสอบกับ Xcode จริง
+- โค้ดที่แก้ยังไม่ผ่านคอมไพเลอร์ ต้องรอผล build บน macOS
+- `project.pbxproj` เขียนด้วยมือ อาจเปิดใน Xcode ไม่ได้ ทางสำรองคือสร้างใหม่ด้วย `xcodegen generate`
+- CI ใช้ `runs-on: macos-26` ต้องตรวจว่า runner นี้มีให้ใช้จริง
+- รายการดาวน์โหลดไม่ถูกบันทึกถาวร หายเมื่อปิดแอป
+
+## งานค้าง (เรียงตามลำดับ)
+
+1. [x] ผู้ใช้ยืนยันให้แก้ข้อ 1, ข้อ 2 และเพิ่ม scheme
+2. [x] แก้ข้อ 1
+3. [x] แก้ข้อ 2
+4. [x] เพิ่ม shared scheme
+5. [ ] push ขึ้น GitHub แล้วดูผล GitHub Actions
+6. [ ] งานถัดไปจาก README: เปอร์เซ็นต์/pause/resume ดาวน์โหลด, เปิดหน้าต่างใหม่เป็นแท็บใหม่, ไอคอนแอป
+
+## บันทึกการทำงาน
+
+- 2026-09-24: ตรวจโค้ดทั้งหมด สร้าง HANDOFF.md และ Git repository ยังไม่แก้โค้ด
+- 2026-09-24: แก้การอัปเดต UI ของแท็บ เปิดการแชร์ไฟล์กับแอป Files และเพิ่ม shared scheme (ยังไม่ได้ build)
